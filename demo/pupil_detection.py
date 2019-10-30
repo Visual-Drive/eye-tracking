@@ -4,14 +4,12 @@ import numpy as np
 print("abc")
 print(cv2.__version__)
 
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
 
 
 img = cv2.imread("augen.jpg")
 fehler = cv2.imread("fehler.png")
 gray_picture2 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-faces = face_cascade.detectMultiScale(gray_picture2, 1.3, 5)
 
 
 detector_params = cv2.SimpleBlobDetector_Params()
@@ -41,24 +39,6 @@ def detect_eyes(img, classifier):
         return fehler
     else:
         return left_eye
-
-
-def detect_faces(img, classifier):
-    gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    coords = classifier.detectMultiScale(gray_frame, 1.3, 5)
-    if len(coords) > 1:
-        biggest = (0, 0, 0, 0)
-        for i in coords:
-            if i[3] > biggest[3]:
-                biggest = i
-        biggest = np.array([i], np.int32)
-    elif len(coords) == 1:
-        biggest = coords
-    else:
-        return None
-    for (x, y, w, h) in biggest:
-        frame = img[y:y + h, x:x + w]
-    return frame
 
 def cut_eyebrows(img):
     height, width = img.shape[:2]
@@ -94,15 +74,14 @@ while True:
     frame = detect_eyes(frame, eye_cascade)
     frame = cut_eyebrows(frame)
     keypoints = blob_process(frame, detector)
-    cv2.drawKeypoints(frame, keypoints, frame, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    # cv2.drawKeypoints(frame, keypoints, frame, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    frame = cv2.resize(frame, (0,0), fx=2, fy=2) 
     cv2.imshow("my frame",frame)
-    key = cv2.waitKey(30)
-    if key == 27:
-        break
+    if cv2.waitKey(20) & 0xFF == ord('q'):
+            break
 
 
-cv2.imshow('my image',img)
-cv2.waitKey(0)
+cap.release()
 cv2.destroyAllWindows()
 
 
