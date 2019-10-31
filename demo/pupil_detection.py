@@ -6,11 +6,7 @@ print(cv2.__version__)
 
 eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
 
-
-img = cv2.imread("augen.jpg")
-fehler = cv2.imread("fehler.png")
-gray_picture2 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
+fehler = cv2.imread("../res/fehler.png")
 
 detector_params = cv2.SimpleBlobDetector_Params()
 detector_params.filterByArea = True
