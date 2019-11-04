@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from matplotlib import pyplot as plt
 
 print('Currently running on: ' + cv2.__version__)
 
@@ -26,6 +27,13 @@ def detect_eyes(img, cascade):
         eyecenter = x + w / 2  # get the eye center
         if eyecenter < width * 0.5:
             left_eye = img[y:y + h, x:x + w]
+            '''
+            plt.subplot(2, 1, 1), plt.imshow(left_eye, cmap = 'gray')
+            plt.title('Original Noisy Image'), plt.xticks([]), plt.yticks([])
+            plt.subplot(2, 1, 2), plt.hist(left_eye.ravel(), 256)
+            plt.title('Histogram'), plt.xticks([]), plt.yticks([])
+            plt.show()
+            '''
         else:
             right_eye = img[y:y + h, x:x + w]
     return left_eye, right_eye
