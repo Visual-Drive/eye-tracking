@@ -8,11 +8,6 @@ eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
 
 fehler = cv2.imread("../res/fehler.png")
 
-detector_params = cv2.SimpleBlobDetector_Params()
-detector_params.filterByArea = True
-detector_params.maxArea = 1500
-detector = cv2.SimpleBlobDetector_create(detector_params)
-
 def detect_faces(img, cascade):
     gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     coords = cascade.detectMultiScale(gray_frame, 1.3, 5)
@@ -60,7 +55,7 @@ def cut_eyebrows(img):
         return img
 
 
-def blob_process(img, detector):
+def blob_process(img):
     if (img is not None):
         gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         _, imgt = cv2.threshold(gray_frame, 25, 255, cv2.THRESH_BINARY_INV)
@@ -103,10 +98,11 @@ while True:
     #face_frame = detect_faces(frame, face_cascade)
     #if face_frame is not None:
     eyes = detect_eyes(frame, eye_cascade)
+    #cv2.imshow('frame', frame)
     for eye in eyes:
         if eye is not None:
             eye = cut_eyebrows(eye)
-            keypoints = blob_process(eye, detector)
+            blob_process(eye)
             #eye = cv2.drawKeypoints(eye, keypoints, eye, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     cv2.imshow('frame', frame)
     if cv2.waitKey(20) & 0xFF == ord('q'):
