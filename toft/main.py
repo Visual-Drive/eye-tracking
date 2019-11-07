@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
 
 print('Currently running on: ' + cv2.__version__)
 
+face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
 
 fehler = cv2.imread("../res/fehler.png")
@@ -12,6 +12,23 @@ detector_params = cv2.SimpleBlobDetector_Params()
 detector_params.filterByArea = True
 detector_params.maxArea = 1500
 detector = cv2.SimpleBlobDetector_create(detector_params)
+
+def detect_faces(img, cascade):
+    gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    coords = cascade.detectMultiScale(gray_frame, 1.3, 5)
+    if len(coords) > 1:
+        biggest = (0, 0, 0, 0)
+        for i in coords:
+            if i[3] > biggest[3]:
+                biggest = i
+        biggest = np.array([i], np.int32)
+    elif len(coords) == 1:
+        biggest = coords
+    else:
+        return None
+    for (x, y, w, h) in biggest:
+        frame = img[y:y + h, x:x + w]
+    return frame
 
 def detect_eyes(img, cascade):
     gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -27,13 +44,6 @@ def detect_eyes(img, cascade):
         eyecenter = x + w / 2  # get the eye center
         if eyecenter < width * 0.5:
             left_eye = img[y:y + h, x:x + w]
-            '''
-            plt.subplot(2, 1, 1), plt.imshow(left_eye, cmap = 'gray')
-            plt.title('Original Noisy Image'), plt.xticks([]), plt.yticks([])
-            plt.subplot(2, 1, 2), plt.hist(left_eye.ravel(), 256)
-            plt.title('Histogram'), plt.xticks([]), plt.yticks([])
-            plt.show()
-            '''
         else:
             right_eye = img[y:y + h, x:x + w]
     return left_eye, right_eye
@@ -51,20 +61,33 @@ def cut_eyebrows(img):
 
 
 def blob_process(img, detector):
-    gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, img = cv2.threshold(gray_frame, 13, 255, cv2.THRESH_BINARY)
-    # img = cv2.adaptiveThreshold(gray_frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 115, 1) #Funktioniert noch nicht
-    img = cv2.erode(img, None, iterations=2)
-    # cv2.imshow('img', img)
-    img = cv2.dilate(img, None, iterations=4)
-    img = cv2.medianBlur(img, 5)
-    keypoints = detector.detect(img)
-    if keypoints is None:
-        print("Kein Auge erkennbar")
-        return False
+    if (img is not None):
+        gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        _, imgt = cv2.threshold(gray_frame, 25, 255, cv2.THRESH_BINARY_INV)
+        cv2.imwrite('thresholded_image.png', imgt)
+        # img = cv2.adaptiveThreshold(gray_frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 115, 1) #Funktioniert noch nicht
+
+        imgt = cv2.erode(imgt, None, iterations=2)
+        imgt = cv2.dilate(imgt, None, iterations=4)
+        imgt = cv2.medianBlur(imgt, 5)
+        _, contours, _ = cv2.findContours(imgt, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
+        print(contours)
+        rows, cols, _ = img.shape
+        for cnt in contours:
+            (x, y, w, h) = cv2.boundingRect(cnt)
+            #cv2.drawContours(img, [cnt], -1, (0,0,255), 3)
+            cv2.rectangle(img, (x, y), (x+w, y+h), (255,0,0), 1)
+            cv2.line(img, (x + int(w/2), 0), (x+int(w/2), rows), (0, 255, 0), 1)
+            cv2.line(img, (0, y + int(h/2)), (cols, y + int(h/2)), (0,255,0), 1)
+            break
+
+        cv2.imwrite('pupil.png', img)
+        cv2.imshow('my image', img)
+        cv2.imshow('imgt', imgt)
+        return img
     else:
-        print(keypoints)
-        return keypoints
+        return None
 
 
 cap = cv2.VideoCapture(0)
@@ -77,32 +100,18 @@ while True:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     eyes = eye_cascade.detectMultiScale(gray, 1.3, 5)
     '''
+    #face_frame = detect_faces(frame, face_cascade)
+    #if face_frame is not None:
     eyes = detect_eyes(frame, eye_cascade)
     for eye in eyes:
         if eye is not None:
             eye = cut_eyebrows(eye)
             keypoints = blob_process(eye, detector)
-            eye = cv2.drawKeypoints(eye, keypoints, eye, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            #eye = cv2.drawKeypoints(eye, keypoints, eye, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     cv2.imshow('frame', frame)
     if cv2.waitKey(20) & 0xFF == ord('q'):
         break
-    '''
-    frame = detect_eyes(frame, eye_cascade)
-    if(frame is False):
-        frame = fehler
-    else:
-        frame = cut_eyebrows(frame)
-        keypoints = blob_process(frame, detector)
-        cv2.drawKeypoints(frame, keypoints, frame, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        frame = cv2.resize(frame, (0,0), fx=2, fy=2, interpolation = cv2.INTER_LINEAR) 
-        # gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # _, img = cv2.threshold(gray_frame, 120, 255, cv2.THRESH_BINARY)
-        # contours, _ = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMLPE)
-        # contours = sorted(contours, key = lambda x: cv2.contourArea(x), reverse = True)
-    cv2.imshow("VisualDrive",frame)
-    if cv2.waitKey(20) & 0xFF == ord('q'):
-            break
-    '''
+   
 
 
 cap.release()
