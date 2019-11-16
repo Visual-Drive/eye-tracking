@@ -8,11 +8,6 @@ eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
 
 fehler = cv2.imread("../res/fehler.png")
 
-detector_params = cv2.SimpleBlobDetector_Params()
-detector_params.filterByArea = True
-detector_params.maxArea = 1500
-detector = cv2.SimpleBlobDetector_create(detector_params)
-
 def detect_eyes(img, classifier):
     gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     eyes = eye_cascade.detectMultiScale(gray_frame, 1.3, 5)
@@ -47,25 +42,49 @@ def cut_eyebrows(img):
         return img
 
 
-def blob_process(img, detector):
+def blob_process(img):
     gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, img = cv2.threshold(gray_frame, 120, 255, cv2.THRESH_BINARY)
-    # img = cv2.adaptiveThreshold(gray_frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 115, 1) #Funktioniert noch nicht
-    img = cv2.erode(img, None, iterations=2)
-    cv2.imshow('img', img)
-    img = cv2.dilate(img, None, iterations=4)
-    img = cv2.medianBlur(img, 5)
-    keypoints = detector.detect(img)
-    if keypoints is None:
-        print("Kein Auge erkennbar")
-        return False
-    else:
-        return keypoints
+    _, imgt = cv2.threshold(gray_frame, 21, 255, cv2.THRESH_BINARY_INV)
+    imgt = cv2.erode(imgt, None, iterations=2)
+    imgt = cv2.dilate(imgt, None, iterations=4)
+    imgt = cv2.medianBlur(imgt, 5)
+    _, contours, _ = cv2.findContours(imgt, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
+    rows, cols, _ = img.shape
+    for cnt in contours:
+        (x, y, w, h) = cv2.boundingRect(cnt)
+        cv2.rectangle(img, (x, y), (x+w, y+h), (255,0,0), 1)
+        cv2.line(img, (x + int(w/2), 0), (x+int(w/2), rows), (0, 255, 0), 1)
+        cv2.line(img, (0, y + int(h/2)), (cols, y + int(h/2)), (0,255,0), 1)
+        center = (x + int(w/2), y + int(h/2))
+        #print("{}, {}".format(x, int(cols/3)))
+        cv2.circle(img, center, 5, (0, 0, 255), 1)
+        get_direction(center[0], cols)
+        break
+
+    cv2.imwrite('pupil.png', img)
+    cv2.imshow('my image', img)
+    cv2.imshow('imgt', imgt)
+    return img
+    
+def get_direction(x, cols):
+    global state
+    if x > int(cols/3) and x < int(cols/3) * 2 and state is not "middle":
+        #TODO: Call communicatior.py
+        state = "middle"
+        print("middle")
+    elif x < int(cols/3) and state is not "right":
+        #TODO: Call communicatior.py
+        state = "right"
+        print("right")
+    elif x > int(cols/3) * 2 and state is not "left":
+        #TODO: Call communicatior.py
+        state = "left"
+        print("left")
 
 
 cap = cv2.VideoCapture(0)
-#cap.set(3, 1280)
-#cap.set(4, 720)
+state = "middle"
 
 while True:
     ret, frame = cap.read()
@@ -74,13 +93,8 @@ while True:
         frame = fehler
     else:
         frame = cut_eyebrows(frame)
-        keypoints = blob_process(frame, detector)
-        cv2.drawKeypoints(frame, keypoints, frame, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        keypoints = blob_process(frame)
         frame = cv2.resize(frame, (0,0), fx=2, fy=2, interpolation = cv2.INTER_LINEAR) 
-        # gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # _, img = cv2.threshold(gray_frame, 120, 255, cv2.THRESH_BINARY)
-        # contours, _ = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMLPE)
-        # contours = sorted(contours, key = lambda x: cv2.contourArea(x), reverse = True)
     cv2.imshow("VisualDrive",frame)
     if cv2.waitKey(20) & 0xFF == ord('q'):
             break
