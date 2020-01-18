@@ -44,7 +44,9 @@ def cut_eyebrows(img):
 
 def blob_process(img):
     gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, imgt = cv2.threshold(gray_frame, 21, 255, cv2.THRESH_BINARY_INV)
+    gray_frame = cv2.GaussianBlur(gray_frame, (5, 5), 0)
+    _, imgt = cv2.threshold(gray_frame, 22, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    print(_)
     imgt = cv2.erode(imgt, None, iterations=2)
     imgt = cv2.dilate(imgt, None, iterations=4)
     imgt = cv2.medianBlur(imgt, 5)
