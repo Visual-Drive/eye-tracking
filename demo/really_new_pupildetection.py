@@ -3,7 +3,7 @@ import numpy as np
 from math import hypot
 
 eye_cascade = cv2.CascadeClassifier('../res/eye.xml')
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(0)
 
 
 def detect_eyes(img):
