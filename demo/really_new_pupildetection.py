@@ -2,13 +2,20 @@ import cv2
 import numpy as np
 from math import hypot
 
-eye_cascade = cv2.CascadeClassifier('../res/eye.xml')
+eye_cascade_open = cv2.CascadeClassifier('../res/eye.xml')
+eye_cascade_open_or_closed = cv2.CascadeClassifier('../res/haarcascade_righteye_2splits.xml')
 cap = cv2.VideoCapture(0)
+blinked = 0
 
 
 def detect_eyes(img):
     if img is not None:
-        eyes = eye_cascade.detectMultiScale(img, 1.3, 5)
+        eyes = eye_cascade_open.detectMultiScale(img, 1.3, 5)
+        if len(eyes) == 0:
+            eyes = eye_cascade_open_or_closed.detectMultiScale(img, 1.3, 5)
+            global blinked
+            blinked += 1
+            print(blinked)
         width = np.size(img, 1)
         height = np.size(img, 0)
         left_eye = None
@@ -68,7 +75,7 @@ while True:
                 left_percent = (distance_right / (eye.shape[1] / 2)) * 100
                 degrees = 90 * (left_percent / 100)
                 print(distance_right)
-            if distance_left < eye.shape[1] / 2:
+            if distance_left < eye.shape[1] / 3:
                 cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                 print('RIGHT')
                 # Calculate percentage and map to degrees
