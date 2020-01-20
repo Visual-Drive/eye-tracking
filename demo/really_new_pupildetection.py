@@ -13,6 +13,8 @@ def detect_eyes(img):
         eyes = eye_cascade_open.detectMultiScale(img, 1.3, 5)
         if len(eyes) == 0:
             eyes = eye_cascade_open_or_closed.detectMultiScale(img, 1.3, 5)
+            if len(eyes) == 0:
+                return None
             global blinked
             blinked += 1
             print(blinked)
