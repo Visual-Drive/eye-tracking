@@ -1,22 +1,34 @@
 import cv2
 import numpy as np
+import time
 from math import hypot
 
 eye_cascade_open = cv2.CascadeClassifier('../res/eye.xml')
 eye_cascade_open_or_closed = cv2.CascadeClassifier('../res/haarcascade_righteye_2splits.xml')
 cap = cv2.VideoCapture(0)
 blinked = 0
+start = None
 
 
 def detect_eyes(img):
     if img is not None:
         eyes = eye_cascade_open.detectMultiScale(img, 1.3, 5)
+        global blinked
         if len(eyes) == 0:
             eyes = eye_cascade_open_or_closed.detectMultiScale(img, 1.3, 5)
+            global start
             if len(eyes) == 0:
                 return None
-            global blinked
+            if blinked == 0:
+                start = time.time()
             blinked += 1
+            if blinked == 3:
+                end = time.time()
+                elapsed = end - start
+                print(elapsed)
+                if elapsed <= 3:
+                    print("Change modes")
+                blinked = 0
             print(blinked)
         width = np.size(img, 1)
         height = np.size(img, 0)
