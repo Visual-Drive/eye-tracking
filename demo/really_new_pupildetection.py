@@ -85,10 +85,15 @@ while True:
                         intensities.append(eye[y][x])
             except IndexError:
                 pass
+            # Calculate average intensity
             ai = sum(intensities) / len(intensities)
             print(min_max[0], ai)
+            # Create threshold with AI-filter
             _, thresh = cv2.threshold(eye, ai, 255, cv2.THRESH_BINARY_INV)
+            # Opening to remove noise
+            thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, (2, 2))
             cv2.imshow('thresh', thresh)
+            # Calculate center of gravity
             M = cv2.moments(thresh)
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
