@@ -72,14 +72,37 @@ while True:
 
             # Find darkest part of picture
             min_max = cv2.minMaxLoc(eye)
-            cv2.circle(eye, min_max[2], 1, 255, 3)
+            print(min_max)
+
+            # Perform Eye-Center-localization with CDF approach
+            pmi = min_max[2]
+            print(pmi)
+            intensities = []
+            try:
+                # Scan 10x10 matrix for average intensity
+                for x in range(pmi[0] - 5, pmi[0] + 5):
+                    for y in range(pmi[1] - 5, pmi[1] + 5):
+                        intensities.append(eye[y][x])
+            except IndexError:
+                pass
+            ai = sum(intensities) / len(intensities)
+            print(min_max[0], ai)
+            _, thresh = cv2.threshold(eye, ai, 255, cv2.THRESH_BINARY_INV)
+            cv2.imshow('thresh', thresh)
+            M = cv2.moments(thresh)
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+            cv2.circle(eye, (cX, cY), 1, (255, 255, 255), 3)
 
             # Calculate distance to left and right border of picture
-            distance_left = hypot((min_max[2][0] - 0), (min_max[2][1] - eye.shape[0] / 2))
-            distance_right = hypot((eye.shape[1] - min_max[2][0]), (eye.shape[0] / 2 - min_max[2][1]))
+            distance_left = hypot((cX - 0), (cY - eye.shape[0] / 2))
+            distance_right = hypot((cY - cX), (eye.shape[0] / 2 - cY))
+
             # Draw corresponding lines
-            cv2.line(eye, min_max[2], (0, min_max[2][1]), (255, 0, 0), 1)
-            cv2.line(eye, min_max[2], (eye.shape[1], min_max[2][1]), (255, 0, 0), 1)
+            cv2.line(eye, (cX, cY), (0, cY), (255, 0, 0), 1)
+            cv2.line(eye, (cX, cY), (eye.shape[1], cY), (255, 0, 0), 1)
+            cv2.line(eye, (cX, cY), (cX, 0), (255, 0, 0), 1)
+            cv2.line(eye, (cX, cY), (cX, eye.shape[0]), (255, 0, 0), 1)
 
             # Direction detection
             if distance_right < eye.shape[1] / 3:
@@ -98,7 +121,6 @@ while True:
                 print(distance_left)
 
             cv2.imshow('eye', eye)
-
         cv2.imshow("Frame", frame)
     key = cv2.waitKey(1)
     if key == 27:
