@@ -92,9 +92,22 @@ while True:
             _, thresh = cv2.threshold(eye, ai, 255, cv2.THRESH_BINARY_INV)
             # Opening to remove noise
             thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, (2, 2))
-            cv2.imshow('thresh', thresh)
+            # Create 15x15 kernel
+            region = [
+                [pmi[0] - 7, pmi[1] - 7],
+                [pmi[0] - 7, pmi[1] + 7],
+                [pmi[0] + 7, pmi[1] + 7],
+                [pmi[0] + 7, pmi[1] - 7]
+            ]
+            mask = np.array([region], np.int32)
+            image2 = np.zeros((thresh.shape[0], thresh.shape[1]), np.uint8)
+            cv2.fillPoly(image2, [mask], 255)
+            # Filter threshold with kernel
+            out = cv2.bitwise_and(thresh, thresh, mask=image2)
+
+            cv2.imshow('out', out)
             # Calculate center of gravity
-            M = cv2.moments(thresh)
+            M = cv2.moments(out)
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
             cv2.circle(eye, (cX, cY), 1, (255, 255, 255), 3)
