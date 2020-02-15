@@ -64,6 +64,7 @@ while True:
 
     if ret is not None:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # frame = frame[0: frame.shape[0],int(frame.shape[1]/16):frame.shape[1]]
         eye = detect_eyes(frame)
 
         if eye is not None:
@@ -72,22 +73,22 @@ while True:
 
             # Find darkest part of picture
             min_max = cv2.minMaxLoc(eye)
-            print(min_max)
+            # print(min_max)
 
             # Perform Eye-Center-localization with CDF approach
             pmi = min_max[2]
-            print(pmi)
+            # print(pmi)
             intensities = []
             try:
                 # Scan 10x10 matrix for average intensity
-                for x in range(pmi[0] - 5, pmi[0] + 5):
-                    for y in range(pmi[1] - 5, pmi[1] + 5):
+                for x in range(pmi[0] - 10, pmi[0] + 10):
+                    for y in range(pmi[1] - 10, pmi[1] + 10):
                         intensities.append(eye[y][x])
             except IndexError:
                 pass
             # Calculate average intensity
             ai = sum(intensities) / len(intensities)
-            print(min_max[0], ai)
+            # print(min_max[0], ai)
             # Create threshold with AI-filter
             _, thresh = cv2.threshold(eye, ai, 255, cv2.THRESH_BINARY_INV)
             # Opening to remove noise
@@ -105,6 +106,7 @@ while True:
             # Filter threshold with kernel
             out = cv2.bitwise_and(thresh, thresh, mask=image2)
 
+            cv2.imshow('thresh', thresh)
             cv2.imshow('out', out)
             # Calculate center of gravity
             M = cv2.moments(out)
@@ -113,8 +115,10 @@ while True:
             cv2.circle(eye, (cX, cY), 1, (255, 255, 255), 3)
 
             # Calculate distance to left and right border of picture
-            distance_left = hypot((cX - 0), (cY - eye.shape[0] / 2))
-            distance_right = hypot((cY - cX), (eye.shape[0] / 2 - cY))
+            distance_left = eye.shape[1] - cX
+            distance_right = cX
+            distance_top = cY
+            distance_bottom = eye.shape[0] - cY
 
             # Draw corresponding lines
             cv2.line(eye, (cX, cY), (0, cY), (255, 0, 0), 1)
@@ -123,20 +127,25 @@ while True:
             cv2.line(eye, (cX, cY), (cX, eye.shape[0]), (255, 0, 0), 1)
 
             # Direction detection
-            if distance_right < eye.shape[1] / 3:
-                cv2.putText(frame, 'LEFT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                print('LEFT')
+            if distance_right < eye.shape[1] / 2:
+                cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                # print('LEFT')
                 # Calculate percentage and map to degrees
                 left_percent = (distance_right / (eye.shape[1] / 2)) * 100
                 degrees = 90 * (left_percent / 100)
-                print(distance_right)
-            if distance_left < eye.shape[1] / 3:
-                cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                print('RIGHT')
+                # print(distance_right)
+            else:
+                cv2.putText(frame, 'LEFT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                # print('RIGHT')
                 # Calculate percentage and map to degrees
                 right_percent = (distance_right / (eye.shape[1] / 2)) * 100
                 degrees = 90 * (right_percent / 100)
-                print(distance_left)
+                # print(distance_left)
+            if distance_top < eye.shape[0] / 3:
+                cv2.putText(frame, 'TOP', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+            else:
+                cv2.putText(frame, 'BOTTOM', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+            print('Distance Right: ', distance_right, ', Distance Left: ', distance_left)
 
             cv2.imshow('eye', eye)
         cv2.imshow("Frame", frame)
