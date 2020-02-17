@@ -57,21 +57,9 @@ def cut_eyebrows(img):
         print("Kein Auge erkennbar")
     else:
         return img
-
-
-while True:
-    ret, frame = cap.read()
-
-    if ret is not None:
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # frame = frame[0: frame.shape[0],int(frame.shape[1]/16):frame.shape[1]]
-        eye = detect_eyes(frame)
-
-        if eye is not None:
-
-            eye = cut_eyebrows(eye)
-
-            # Find darkest part of picture
+        
+def get_pupil_coords(eye):
+    # Find darkest part of picture
             min_max = cv2.minMaxLoc(eye)
             # print(min_max)
 
@@ -81,8 +69,8 @@ while True:
             intensities = []
             try:
                 # Scan 10x10 matrix for average intensity
-                for x in range(pmi[0] - 10, pmi[0] + 10):
-                    for y in range(pmi[1] - 10, pmi[1] + 10):
+                for x in range(pmi[0] - 5, pmi[0] + 5):
+                    for y in range(pmi[1] - 5, pmi[1] + 5):
                         intensities.append(eye[y][x])
             except IndexError:
                 pass
@@ -112,6 +100,23 @@ while True:
             M = cv2.moments(out)
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
+            return cX, cY
+
+
+while True:
+    ret, frame = cap.read()
+
+    if ret is not None:
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # frame = frame[0: frame.shape[0],int(frame.shape[1]/16):frame.shape[1]]
+        eye = detect_eyes(frame)
+
+        if eye is not None:
+
+            eye = cut_eyebrows(eye)
+            # eye = cv2.medianBlur(eye, 3)
+
+            cX, cY = get_pupil_coords(eye)
             cv2.circle(eye, (cX, cY), 1, (255, 255, 255), 3)
 
             # Calculate distance to left and right border of picture
