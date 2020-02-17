@@ -1,16 +1,19 @@
 import cv2
 import numpy as np
 import time
-from math import hypot
+from enum import Enum
 
 eye_cascade_open = cv2.CascadeClassifier('../res/eye.xml')
 eye_cascade_open_or_closed = cv2.CascadeClassifier('../res/haarcascade_righteye_2splits.xml')
 cap = cv2.VideoCapture(0)
 blinked = 0
 start = None
+modes = Enum('Modes', 'DRIVE STOP')
+current_mode = modes.STOP
 
 
 def detect_eyes(img):
+    global current_mode
     if img is not None:
         eyes = eye_cascade_open.detectMultiScale(img, 1.3, 5)
         global blinked
@@ -28,6 +31,8 @@ def detect_eyes(img):
                 print(elapsed)
                 if elapsed <= 3:
                     print("Change modes")
+                    current_mode = modes.DRIVE if current_mode is modes.STOP else modes.STOP
+                    print(current_mode)
                 blinked = 0
             print(blinked)
         width = np.size(img, 1)
@@ -60,47 +65,47 @@ def cut_eyebrows(img):
         
 def get_pupil_coords(eye):
     # Find darkest part of picture
-            min_max = cv2.minMaxLoc(eye)
-            # print(min_max)
+    min_max = cv2.minMaxLoc(eye)
+    # print(min_max)
 
-            # Perform Eye-Center-localization with CDF approach
-            pmi = min_max[2]
-            # print(pmi)
-            intensities = []
-            try:
-                # Scan 10x10 matrix for average intensity
-                for x in range(pmi[0] - 5, pmi[0] + 5):
-                    for y in range(pmi[1] - 5, pmi[1] + 5):
-                        intensities.append(eye[y][x])
-            except IndexError:
-                pass
-            # Calculate average intensity
-            ai = sum(intensities) / len(intensities)
-            # print(min_max[0], ai)
-            # Create threshold with AI-filter
-            _, thresh = cv2.threshold(eye, ai, 255, cv2.THRESH_BINARY_INV)
-            # Opening to remove noise
-            thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, (2, 2))
-            # Create 15x15 kernel
-            region = [
-                [pmi[0] - 7, pmi[1] - 7],
-                [pmi[0] - 7, pmi[1] + 7],
-                [pmi[0] + 7, pmi[1] + 7],
-                [pmi[0] + 7, pmi[1] - 7]
-            ]
-            mask = np.array([region], np.int32)
-            image2 = np.zeros((thresh.shape[0], thresh.shape[1]), np.uint8)
-            cv2.fillPoly(image2, [mask], 255)
-            # Filter threshold with kernel
-            out = cv2.bitwise_and(thresh, thresh, mask=image2)
+    # Perform Eye-Center-localization with CDF approach
+    pmi = min_max[2]
+    # print(pmi)
+    intensities = []
+    try:
+        # Scan 10x10 matrix for average intensity
+        for x in range(pmi[0] - 5, pmi[0] + 5):
+            for y in range(pmi[1] - 5, pmi[1] + 5):
+                intensities.append(eye[y][x])
+    except IndexError:
+        pass
+    # Calculate average intensity
+    ai = sum(intensities) / len(intensities)
+    # print(min_max[0], ai)
+    # Create threshold with AI-filter
+    _, thresh = cv2.threshold(eye, ai, 255, cv2.THRESH_BINARY_INV)
+    # Opening to remove noise
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, (2, 2))
+    # Create 15x15 kernel
+    region = [
+        [pmi[0] - 7, pmi[1] - 7],
+        [pmi[0] - 7, pmi[1] + 7],
+        [pmi[0] + 7, pmi[1] + 7],
+        [pmi[0] + 7, pmi[1] - 7]
+    ]
+    mask = np.array([region], np.int32)
+    image2 = np.zeros((thresh.shape[0], thresh.shape[1]), np.uint8)
+    cv2.fillPoly(image2, [mask], 255)
+    # Filter threshold with kernel
+    out = cv2.bitwise_and(thresh, thresh, mask=image2)
 
-            cv2.imshow('thresh', thresh)
-            cv2.imshow('out', out)
-            # Calculate center of gravity
-            M = cv2.moments(out)
-            cX = int(M["m10"] / M["m00"])
-            cY = int(M["m01"] / M["m00"])
-            return cX, cY
+    cv2.imshow('thresh', thresh)
+    cv2.imshow('out', out)
+    # Calculate center of gravity
+    M = cv2.moments(out)
+    cX = int(M["m10"] / M["m00"])
+    cY = int(M["m01"] / M["m00"])
+    return cX, cY
 
 
 while True:
@@ -116,43 +121,44 @@ while True:
             eye = cut_eyebrows(eye)
             # eye = cv2.medianBlur(eye, 3)
 
-            cX, cY = get_pupil_coords(eye)
-            cv2.circle(eye, (cX, cY), 1, (255, 255, 255), 3)
+            if current_mode is modes.DRIVE:
+                cX, cY = get_pupil_coords(eye)
+                cv2.circle(eye, (cX, cY), 1, (255, 255, 255), 3)
 
-            # Calculate distance to left and right border of picture
-            distance_left = eye.shape[1] - cX
-            distance_right = cX
-            distance_top = cY
-            distance_bottom = eye.shape[0] - cY
+                # Calculate distance to left and right border of picture
+                distance_left = eye.shape[1] - cX
+                distance_right = cX
+                distance_top = cY
+                distance_bottom = eye.shape[0] - cY
 
-            # Draw corresponding lines
-            cv2.line(eye, (cX, cY), (0, cY), (255, 0, 0), 1)
-            cv2.line(eye, (cX, cY), (eye.shape[1], cY), (255, 0, 0), 1)
-            cv2.line(eye, (cX, cY), (cX, 0), (255, 0, 0), 1)
-            cv2.line(eye, (cX, cY), (cX, eye.shape[0]), (255, 0, 0), 1)
+                # Draw corresponding lines
+                cv2.line(eye, (cX, cY), (0, cY), (255, 0, 0), 1)
+                cv2.line(eye, (cX, cY), (eye.shape[1], cY), (255, 0, 0), 1)
+                cv2.line(eye, (cX, cY), (cX, 0), (255, 0, 0), 1)
+                cv2.line(eye, (cX, cY), (cX, eye.shape[0]), (255, 0, 0), 1)
 
-            # Direction detection
-            if distance_right < eye.shape[1] / 2:
-                cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                # print('LEFT')
-                # Calculate percentage and map to degrees
-                left_percent = (distance_right / (eye.shape[1] / 2)) * 100
-                degrees = 90 * (left_percent / 100)
-                # print(distance_right)
-            else:
-                cv2.putText(frame, 'LEFT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                # print('RIGHT')
-                # Calculate percentage and map to degrees
-                right_percent = (distance_right / (eye.shape[1] / 2)) * 100
-                degrees = 90 * (right_percent / 100)
-                # print(distance_left)
-            if distance_top < eye.shape[0] / 3:
-                cv2.putText(frame, 'TOP', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-            else:
-                cv2.putText(frame, 'BOTTOM', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-            print('Distance Right: ', distance_right, ', Distance Left: ', distance_left)
+                # Direction detection
+                if distance_right < eye.shape[1] / 2:
+                    cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                    # print('LEFT')
+                    # Calculate percentage and map to degrees
+                    left_percent = (distance_right / (eye.shape[1] / 2)) * 100
+                    degrees = 90 * (left_percent / 100)
+                    # print(distance_right)
+                else:
+                    cv2.putText(frame, 'LEFT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                    # print('RIGHT')
+                    # Calculate percentage and map to degrees
+                    right_percent = (distance_right / (eye.shape[1] / 2)) * 100
+                    degrees = 90 * (right_percent / 100)
+                    # print(distance_left)
+                if distance_top < eye.shape[0] / 3:
+                    cv2.putText(frame, 'TOP', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                else:
+                    cv2.putText(frame, 'BOTTOM', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                # print('Distance Right: ', distance_right, ', Distance Left: ', distance_left)
 
-            cv2.imshow('eye', eye)
+                cv2.imshow('eye', eye)
         cv2.imshow("Frame", frame)
     key = cv2.waitKey(1)
     if key == 27:
