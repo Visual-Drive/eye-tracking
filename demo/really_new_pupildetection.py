@@ -4,7 +4,7 @@ import time
 from enum import Enum
 
 eye_cascade_open = cv2.CascadeClassifier('../res/eye.xml')
-eye_cascade_open_or_closed = cv2.CascadeClassifier('../res/haarcascade_righteye_2splits.xml')
+eye_cascade_open_or_closed = cv2.CascadeClassifier('../res/haarcascade_lefteye_2splits.xml')
 cap = cv2.VideoCapture(0)
 blinked = 0
 start = None
@@ -13,21 +13,18 @@ current_mode = modes.STOP
 
 
 def detect_eyes(img):
-    global current_mode
+    global current_mode, blinked, start
     if img is not None:
         eyes = eye_cascade_open.detectMultiScale(img, 1.3, 5)
-        global blinked
         if len(eyes) == 0:
             eyes = eye_cascade_open_or_closed.detectMultiScale(img, 1.3, 5)
-            global start
-            if len(eyes) == 0:
-                return None
-            if blinked == 0:
-                start = time.time()
-            blinked += 1
-            if blinked == 3:
+            if len(eyes) == 0: return None
+            if blinked == 0: start = time.time()
+            if start is not None:
                 end = time.time()
                 elapsed = end - start
+            blinked += 1
+            if blinked == 3:
                 print(elapsed)
                 if elapsed <= 3:
                     print("Change modes")
@@ -62,7 +59,8 @@ def cut_eyebrows(img):
         print("Kein Auge erkennbar")
     else:
         return img
-        
+
+
 def get_pupil_coords(eye):
     # Find darkest part of picture
     min_max = cv2.minMaxLoc(eye)
@@ -157,8 +155,8 @@ while True:
                 else:
                     cv2.putText(frame, 'BOTTOM', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                 # print('Distance Right: ', distance_right, ', Distance Left: ', distance_left)
-
                 cv2.imshow('eye', eye)
+        cv2.putText(frame, f'Blinked: {blinked}', (50, 350), cv2.FONT_HERSHEY_PLAIN, 6, 255)
         cv2.imshow("Frame", frame)
     key = cv2.waitKey(1)
     if key == 27:
