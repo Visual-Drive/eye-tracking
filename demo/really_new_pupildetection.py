@@ -4,7 +4,7 @@ import time
 from enum import Enum
 
 eye_cascade_open = cv2.CascadeClassifier('../res/eye.xml')
-eye_cascade_open_or_closed = cv2.CascadeClassifier('../res/haarcascade_lefteye_2splits.xml')
+eye_cascade_open_or_closed = cv2.CascadeClassifier('../res/haarcascade_righteye_2splits.xml')
 cap = cv2.VideoCapture(0)
 blinked = 0
 start = None
