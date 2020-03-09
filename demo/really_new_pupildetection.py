@@ -1,110 +1,22 @@
 import cv2
-import numpy as np
 import time
+import helper
 from enum import Enum
 
 eye_cascade_open = cv2.CascadeClassifier('../res/eye.xml')
 eye_cascade_open_or_closed = cv2.CascadeClassifier('../res/haarcascade_righteye_2splits.xml')
 cap = cv2.VideoCapture(0)
-blinked = 0
-start = None
+# ser = serial.Serial('COM4', baudrate=19200, bytesize=serial.EIGHTBITS, stopbits=serial.STOPBITS_ONE)
+
+is_gazing = False
+blinked_count = 0
+blinking_start = None
+
+mode_start = None
 modes = Enum('Modes', 'DRIVE STOP')
 current_mode = modes.STOP
 
-
-def detect_eyes(img):
-    global current_mode, blinked, start
-    if img is not None:
-        eyes = eye_cascade_open.detectMultiScale(img, 1.3, 5)
-        if len(eyes) == 0:
-            eyes = eye_cascade_open_or_closed.detectMultiScale(img, 1.3, 5)
-            if len(eyes) == 0: return None
-            if blinked == 0: start = time.time()
-            if start is not None:
-                end = time.time()
-                elapsed = end - start
-            blinked += 1
-            if blinked == 3:
-                print(elapsed)
-                if elapsed <= 3:
-                    print("Change modes")
-                    current_mode = modes.DRIVE if current_mode is modes.STOP else modes.STOP
-                    print(current_mode)
-                blinked = 0
-            print(blinked)
-        width = np.size(img, 1)
-        height = np.size(img, 0)
-        left_eye = None
-        right_eye = None
-        for (x, y, w, h) in eyes:
-            if y > height / 2:
-                pass
-            eyecenter = x + w / 2
-            if eyecenter < width * 0.5:
-                left_eye = img[y:y + h, x:x + w]
-            else:
-                right_eye = img[y:y + h, x:x + w]
-
-        if right_eye is not None:
-            return right_eye
-    else:
-        return None
-
-
-def cut_eyebrows(img):
-    height, width = img.shape[:2]
-    eyebrow_h = int(height / 4)
-    img = img[eyebrow_h:height, 0:width]
-    if img is None:
-        print("Kein Auge erkennbar")
-    else:
-        return img
-
-
-def get_pupil_coords(eye):
-    # Find darkest part of picture
-    min_max = cv2.minMaxLoc(eye)
-    # print(min_max)
-
-    # Perform Eye-Center-localization with CDF approach
-    pmi = min_max[2]
-    # print(pmi)
-    intensities = []
-    try:
-        # Scan 10x10 matrix for average intensity
-        for x in range(pmi[0] - 5, pmi[0] + 5):
-            for y in range(pmi[1] - 5, pmi[1] + 5):
-                intensities.append(eye[y][x])
-    except IndexError:
-        pass
-    # Calculate average intensity
-    ai = sum(intensities) / len(intensities)
-    # print(min_max[0], ai)
-    # Create threshold with AI-filter
-    _, thresh = cv2.threshold(eye, ai, 255, cv2.THRESH_BINARY_INV)
-    # Opening to remove noise
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, (2, 2))
-    # Create 15x15 kernel
-    region = [
-        [pmi[0] - 7, pmi[1] - 7],
-        [pmi[0] - 7, pmi[1] + 7],
-        [pmi[0] + 7, pmi[1] + 7],
-        [pmi[0] + 7, pmi[1] - 7]
-    ]
-    mask = np.array([region], np.int32)
-    image2 = np.zeros((thresh.shape[0], thresh.shape[1]), np.uint8)
-    cv2.fillPoly(image2, [mask], 255)
-    # Filter threshold with kernel
-    out = cv2.bitwise_and(thresh, thresh, mask=image2)
-
-    cv2.imshow('thresh', thresh)
-    cv2.imshow('out', out)
-    # Calculate center of gravity
-    M = cv2.moments(out)
-    cX = int(M["m10"] / M["m00"])
-    cY = int(M["m01"] / M["m00"])
-    return cX, cY
-
+previously_closed = False
 
 while True:
     ret, frame = cap.read()
@@ -112,15 +24,26 @@ while True:
     if ret is not None:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # frame = frame[0: frame.shape[0],int(frame.shape[1]/16):frame.shape[1]]
-        eye = detect_eyes(frame)
+        # eye = helper.detect_eyes(frame, eye_cascade_open, eye_cascade_open_or_closed)
+        is_closed, eye = helper.detect_eyes2(frame, eye_cascade_open, eye_cascade_open_or_closed)
+
+        if is_closed and not previously_closed:
+            if blinked_count == 0: blinking_start = time.time()
+            blinked_count += 1
+            if blinked_count >= 3:
+                if time.time() - blinking_start <= 3:
+                    current_mode = modes.DRIVE if current_mode is modes.STOP else modes.STOP
+                blinked_count = 0
+
+        previously_closed = is_closed
 
         if eye is not None:
 
-            eye = cut_eyebrows(eye)
+            eye = helper.cut_eyebrows(eye)
             # eye = cv2.medianBlur(eye, 3)
 
             if current_mode is modes.DRIVE:
-                cX, cY = get_pupil_coords(eye)
+                cX, cY = helper.get_pupil_coords(eye)
                 cv2.circle(eye, (cX, cY), 1, (255, 255, 255), 3)
 
                 # Calculate distance to left and right border of picture
@@ -136,30 +59,51 @@ while True:
                 cv2.line(eye, (cX, cY), (cX, eye.shape[0]), (255, 0, 0), 1)
 
                 # Direction detection
-                if distance_right < eye.shape[1] / 2:
-                    cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                    # print('LEFT')
-                    # Calculate percentage and map to degrees
-                    left_percent = (distance_right / (eye.shape[1] / 2)) * 100
-                    degrees = 90 * (left_percent / 100)
-                    # print(distance_right)
+                if distance_right < eye.shape[1] / 3:
+                    is_gazing = True
+                    if helper.mode_start is None:
+                        helper.mode_start = time.time()
+                    elif time.time() - helper.mode_start >= 1:
+                        print('right')
+                        cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                        # print('LEFT')
+                        # Calculate percentage and map to degrees
+                        left_percent = (distance_right / (eye.shape[1] / 2)) * 100
+                        degrees = 90 * (left_percent / 100)
+                        # print(distance_right)
+                elif distance_left < eye.shape[1] / 3:
+                    is_gazing = True
+                    if helper.mode_start is None:
+                        helper.mode_start = time.time()
+                        print(helper.mode_start)
+                        print('kek')
+                    elif time.time() - helper.mode_start >= 1:
+                        print('left')
+                        cv2.putText(frame, 'LEFT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                        # print('RIGHT')
+                        # Calculate percentage and map to degrees
+                        right_percent = (distance_right / (eye.shape[1] / 2)) * 100
+                        degrees = 90 * (right_percent / 100)
+                        # print(distance_left)
+                    if helper.mode_start is not None:
+                        print(helper.mode_start - time.time())
                 else:
-                    cv2.putText(frame, 'LEFT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                    # print('RIGHT')
-                    # Calculate percentage and map to degrees
-                    right_percent = (distance_right / (eye.shape[1] / 2)) * 100
-                    degrees = 90 * (right_percent / 100)
-                    # print(distance_left)
+                    cv2.putText(frame, 'CENTER', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                    if not is_gazing:
+                        is_gazing = False
+                        helper.mode_start = None
+
                 if distance_top < eye.shape[0] / 3:
                     cv2.putText(frame, 'TOP', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                 else:
                     cv2.putText(frame, 'BOTTOM', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                 # print('Distance Right: ', distance_right, ', Distance Left: ', distance_left)
                 cv2.imshow('eye', eye)
-        cv2.putText(frame, f'Blinked: {blinked}', (50, 350), cv2.FONT_HERSHEY_PLAIN, 6, 255)
+        cv2.putText(frame, f'Blinked: {blinked_count}', (50, 350), cv2.FONT_HERSHEY_PLAIN, 6, 255)
         cv2.imshow("Frame", frame)
     key = cv2.waitKey(1)
     if key == 27:
+        # ser.close()
         break
 
 cv2.destroyAllWindows()
