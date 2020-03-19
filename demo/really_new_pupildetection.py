@@ -59,45 +59,35 @@ while True:
                 cv2.line(eye, (cX, cY), (cX, eye.shape[0]), (255, 0, 0), 1)
 
                 # Direction detection
+                
                 if distance_right < eye.shape[1] / 3:
-                    is_gazing = True
-                    if helper.mode_start is None:
-                        helper.mode_start = time.time()
-                    elif time.time() - helper.mode_start >= 1:
-                        print('right')
-                        cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                        # print('LEFT')
-                        # Calculate percentage and map to degrees
-                        left_percent = (distance_right / (eye.shape[1] / 2)) * 100
-                        degrees = 90 * (left_percent / 100)
-                        # print(distance_right)
+                    print('right')
+                    cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                    # print('LEFT')
+                    # Calculate percentage and map to degrees
+                    left_percent = (distance_right / (eye.shape[1] / 2)) * 100
+                    degrees = 90 * (left_percent / 100)
+                    # print(distance_right)
                 elif distance_left < eye.shape[1] / 3:
-                    is_gazing = True
-                    if helper.mode_start is None:
-                        helper.mode_start = time.time()
-                        print(helper.mode_start)
-                        print('kek')
-                    elif time.time() - helper.mode_start >= 1:
-                        print('left')
-                        cv2.putText(frame, 'LEFT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                    print('left')
+                    cv2.putText(frame, 'LEFT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                         # print('RIGHT')
                         # Calculate percentage and map to degrees
-                        right_percent = (distance_right / (eye.shape[1] / 2)) * 100
-                        degrees = 90 * (right_percent / 100)
+                    right_percent = (distance_right / (eye.shape[1] / 2)) * 100
+                    degrees = 90 * (right_percent / 100)
                         # print(distance_left)
-                    if helper.mode_start is not None:
-                        print(helper.mode_start - time.time())
                 else:
                     cv2.putText(frame, 'CENTER', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                     if not is_gazing:
                         is_gazing = False
                         helper.mode_start = None
-
+                
                 if distance_top < eye.shape[0] / 3:
                     cv2.putText(frame, 'TOP', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                 else:
                     cv2.putText(frame, 'BOTTOM', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                 # print('Distance Right: ', distance_right, ', Distance Left: ', distance_left)
+                
                 cv2.imshow('eye', eye)
         cv2.putText(frame, f'Blinked: {blinked_count}', (50, 350), cv2.FONT_HERSHEY_PLAIN, 6, 255)
         cv2.imshow("Frame", frame)

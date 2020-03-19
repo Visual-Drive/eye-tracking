@@ -5,7 +5,6 @@ from enum import Enum
 
 blinked_count = 0
 blinking_start = None
-mode_start = None
 modes = Enum('Modes', 'DRIVE STOP')
 current_mode = modes.STOP
 
@@ -63,8 +62,8 @@ def get_pupil_coords(eye):
     intensities = []
     try:
         # Scan 10x10 matrix for average intensity
-        for x in range(pmi[0] - 5, pmi[0] + 5):
-            for y in range(pmi[1] - 5, pmi[1] + 5):
+        for x in range(pmi[0] - 10, pmi[0] + 10):
+            for y in range(pmi[1] - 10, pmi[1] + 10):
                 intensities.append(eye[y][x])
     except IndexError:
         pass
@@ -81,10 +80,10 @@ def get_pupil_coords(eye):
 
     # Create 15x15 kernel
     region = [
-        [pmi[0] - 7, pmi[1] - 7],
-        [pmi[0] - 7, pmi[1] + 7],
-        [pmi[0] + 7, pmi[1] + 7],
-        [pmi[0] + 7, pmi[1] - 7]
+        [pmi[0] - 14, pmi[1] - 14],
+        [pmi[0] - 14, pmi[1] + 14],
+        [pmi[0] + 14, pmi[1] + 14],
+        [pmi[0] + 14, pmi[1] - 14]
     ]
 
     mask = np.array([region], np.int32)
