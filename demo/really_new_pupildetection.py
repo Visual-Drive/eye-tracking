@@ -60,7 +60,7 @@ while True:
 
                 # Direction detection
                 
-                if distance_right < eye.shape[1] / 3:
+                if distance_right < eye.shape[1] / 2.7:
                     print('right')
                     cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                     # print('LEFT')
@@ -76,16 +76,13 @@ while True:
                     right_percent = (distance_right / (eye.shape[1] / 2)) * 100
                     degrees = 90 * (right_percent / 100)
                         # print(distance_left)
-                else:
-                    cv2.putText(frame, 'CENTER', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                    if not is_gazing:
-                        is_gazing = False
-                        helper.mode_start = None
                 
-                if distance_top < eye.shape[0] / 3:
+                if distance_top < eye.shape[0] / 3.5:
                     cv2.putText(frame, 'TOP', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                else:
+                    print('TOP')
+                elif distance_top > eye.shape[0] / 2:
                     cv2.putText(frame, 'BOTTOM', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
+                    print('BOTTOM')
                 # print('Distance Right: ', distance_right, ', Distance Left: ', distance_left)
                 
                 cv2.imshow('eye', eye)
