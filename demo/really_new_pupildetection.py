@@ -1,16 +1,20 @@
 import cv2
 import time
 import helper
+import serial
+import struct
 from enum import Enum
 
 eye_cascade_open = cv2.CascadeClassifier('../res/eye.xml')
 eye_cascade_open_or_closed = cv2.CascadeClassifier('../res/haarcascade_righteye_2splits.xml')
 cap = cv2.VideoCapture(0)
-# ser = serial.Serial('COM4', baudrate=19200, bytesize=serial.EIGHTBITS, stopbits=serial.STOPBITS_ONE)
+# ser = serial.Serial('/dev/ttyUSB0', baudrate=19200, bytesize=serial.EIGHTBITS, stopbits=serial.STOPBITS_ONE)
 
 is_gazing = False
 blinked_count = 0
 blinking_start = None
+geschlossen = False
+notstopp_start = None
 
 mode_start = None
 modes = Enum('Modes', 'DRIVE STOP')
@@ -26,18 +30,36 @@ while True:
         # frame = frame[0: frame.shape[0],int(frame.shape[1]/16):frame.shape[1]]
         # eye = helper.detect_eyes(frame, eye_cascade_open, eye_cascade_open_or_closed)
         is_closed, eye = helper.detect_eyes2(frame, eye_cascade_open, eye_cascade_open_or_closed)
+        
+        #Notstopp
+        if is_closed and notstopp_start is None:
+            notstopp_start = time.time()
+        
+        if not is_closed:
+            notstopp_start = None
+        
+        if is_closed and notstopp_start is not None:
+            notstopp_elapsed = time.time() - notstopp_start
+            if notstopp_elapsed >= 1:
+                print("NOTSTOPP")
+                print(notstopp_elapsed)
+                current_mode = modes.STOP
+                notstopp_start = None
 
+    
         if is_closed and not previously_closed:
             if blinked_count == 0: blinking_start = time.time()
             blinked_count += 1
             if blinked_count >= 3:
                 if time.time() - blinking_start <= 3:
                     current_mode = modes.DRIVE if current_mode is modes.STOP else modes.STOP
+                    # if current_mode is modes.STOP: ser.write(struct.pack('!B', 0))
                 blinked_count = 0
 
         previously_closed = is_closed
+        
 
-        if eye is not None:
+        if eye is not None and not is_closed:
 
             eye = helper.cut_eyebrows(eye)
             # eye = cv2.medianBlur(eye, 3)
@@ -63,26 +85,20 @@ while True:
                 if distance_right < eye.shape[1] / 2.7:
                     print('right')
                     cv2.putText(frame, 'RIGHT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                    # print('LEFT')
-                    # Calculate percentage and map to degrees
-                    left_percent = (distance_right / (eye.shape[1] / 2)) * 100
-                    degrees = 90 * (left_percent / 100)
-                    # print(distance_right)
+                    # ser.write(struct.pack('!B', 1))
                 elif distance_left < eye.shape[1] / 3:
                     print('left')
                     cv2.putText(frame, 'LEFT', (50, 150), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
-                        # print('RIGHT')
-                        # Calculate percentage and map to degrees
-                    right_percent = (distance_right / (eye.shape[1] / 2)) * 100
-                    degrees = 90 * (right_percent / 100)
-                        # print(distance_left)
+                    # ser.write(struct.pack('!B', 2))
                 
                 if distance_top < eye.shape[0] / 3.5:
                     cv2.putText(frame, 'TOP', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                     print('TOP')
+                    # ser.write(struct.pack('!B', 3))
                 elif distance_top > eye.shape[0] / 2:
                     cv2.putText(frame, 'BOTTOM', (50, 250), cv2.FONT_HERSHEY_PLAIN, 12, (255, 0, 0))
                     print('BOTTOM')
+                    # ser.write(struct.pack('!B', 0))
                 # print('Distance Right: ', distance_right, ', Distance Left: ', distance_left)
                 
                 cv2.imshow('eye', eye)

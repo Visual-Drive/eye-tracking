@@ -33,12 +33,15 @@ def detect_eyes2(img, eye_cascade_open, eye_cascade_open_or_closed):
             right_eye = get_eye_pos(img, eyes)
             return False, right_eye
         else:
+            return True, None
+            '''
             eyes = eye_cascade_open_or_closed.detectMultiScale(img, 1.3, 5)
             if len(eyes) > 0:
                 right_eye = get_eye_pos(img, eyes)
                 return True, right_eye
             else:
                 return None, None
+                '''
 
 
 def cut_eyebrows(img):
